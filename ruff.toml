@@ -1,0 +1,7 @@
+# scripts/ is the only Python here, and it is one validator with no runtime
+# dependencies -- keep it that way.
+line-length = 100
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]

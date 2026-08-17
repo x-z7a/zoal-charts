@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One platform can only be built on itself, so "does it compile" is three jobs.
+# A change that builds on macOS and breaks the Windows link is the failure this
+# is here to catch before a tag does.
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac_x64
+          - os: windows-latest
+            platform: win_x64
+          - os: ubuntu-latest
+            platform: lin_x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Provision dependencies
+        shell: bash
+        env:
+          # gh reads this to download the pinned SkyScript release. Both repos
+          # are public, so the job's own token is enough.
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/ensure-deps.sh
+
+      - name: Build
+        shell: bash
+        run: |
+          cmake -S . -B build-plugin -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-plugin --config Release
+
+      - name: Check the binary exists where packaging looks for it
+        shell: bash
+        run: test -f "build-plugin/${{ matrix.platform }}/zoal-charts.xpl"
+
+  checks:
+    name: Manifests and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifests
+        run: scripts/check-manifests.py
+
+      - name: shellcheck
+        run: shellcheck scripts/*.sh
+
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: check scripts/
+
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check scripts/

@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in */apps/*/manifest.yaml) \"${CLAUDE_PROJECT_DIR:-.}/scripts/check-manifests.py\" \"$f\" >/dev/null || exit 2;; esac; }",
+            "timeout": 15,
+            "statusMessage": "Validating SkyScript manifest..."
+          }
+        ]
+      }
+    ]
+  }
+}

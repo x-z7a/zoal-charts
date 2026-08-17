@@ -1,0 +1,28 @@
+# The whole product. SkyScript loads a URL-only app straight into its CEF
+# window, so there is no build step, no index.html and no JavaScript here.
+name: Navigraph Charts
+url: https://charts.navigraph.com
+
+# Navigraph provides its own navigation, so SkyScript's injected address bar is
+# redundant screen area. Hiding it also turns the back button into "go back"
+# rather than "close the window".
+hide_addressbar: true
+
+# Charts are read at a glance in flight: bigger than the 1024x768 default, and
+# fully opaque rather than the default 0.96, because a chart seen through the
+# cockpit behind it is a chart you cannot read.
+width: 1400
+height: 900
+window_opacity: 1
+
+# SkyScript's own window decoration rather than X-Plane's title bar. This is the
+# default, and it is spelled out because it is the behaviour we depend on: a
+# titleless window still drags by the strip along its top edge and still resizes
+# through X-Plane, and since SkyScript v0.10.0 it has a real title bar and a
+# resize grip. Setting this to false hands the window back to X-Plane and also
+# forces opacity to 1, ignoring window_opacity above.
+window_titleless: true
+
+# Navigraph is a busy SPA. Forwarding its console to X-Plane's Log.txt would
+# bury the plugin's own messages and grow the log for no diagnostic value.
+console_logging: false
