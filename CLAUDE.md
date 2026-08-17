@@ -52,6 +52,11 @@ behaviour to the user. Do not claim the panel works.
 - **Identity is compiled in** (`src/config.h`): name `zoal-charts`, signature
   `com.x-z7a.zoal-charts`. It must stay distinct from `com.x-z7a.SkyScript` —
   X-Plane loads only one plugin per signature.
+- **Our copy of the SkyScript library is renamed at package time**, because
+  dyld keys images by install name and every SkyScript plugin ships
+  `@rpath/libSkyScriptLib.dylib`. Without the rename, the second such plugin
+  loaded shares the first's library *and its global state*, then serves the
+  other plugin's apps. See `docs/multi-plugin.md`. Do not "simplify" this away.
 - **SkyScript's mac binaries are arm64-only**, so there is no Intel Mac support
   to offer.
 - The SkyScript version is pinned in `scripts/skyscript-version.txt`; that file

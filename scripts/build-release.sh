@@ -69,6 +69,35 @@ for platform in mac_x64 win_x64 lin_x64; do
   mkdir -p "${release_dir}/${platform}"
   cp "${xpl_source}" "${release_dir}/${platform}/zoal-charts.xpl"
   cp "${library_source}" "${release_dir}/${platform}/${library_name}"
+
+  # Give our copy of SkyScript an identity nobody else shares.
+  #
+  # Every SkyScript-based plugin ships a library whose install name is
+  # @rpath/libSkyScriptLib.dylib, and dyld keys loaded images by install name,
+  # not by path. So the second such plugin X-Plane loads does not get its own
+  # copy -- it gets the first one's, and inherits its global state: the Path
+  # singleton, the app registry, the window callbacks. The symptom is a plugin
+  # that starts cleanly and then serves another plugin's apps, which is exactly
+  # what zoal-charts did next to zoal-atc.
+  #
+  # Renaming makes the two images distinct. Only macOS is handled here because
+  # only macOS can be rewritten after the fact; see docs/multi-plugin.md for
+  # what Windows and Linux still need.
+  if [ "${platform}" = "mac_x64" ]; then
+    unique_library="libSkyScriptLib-zoal-charts.dylib"
+    mv "${release_dir}/${platform}/${library_name}" "${release_dir}/${platform}/${unique_library}"
+    install_name_tool -id "@rpath/${unique_library}" \
+      "${release_dir}/${platform}/${unique_library}"
+    install_name_tool -change "@rpath/${library_name}" "@rpath/${unique_library}" \
+      "${release_dir}/${platform}/zoal-charts.xpl"
+
+    # Editing a Mach-O invalidates its signature, and arm64 refuses to load an
+    # unsigned-but-modified binary. Ad-hoc re-signing is what makes the rename
+    # survive being loaded at all.
+    codesign --force --sign - "${release_dir}/${platform}/${unique_library}" 2>/dev/null
+    codesign --force --sign - "${release_dir}/${platform}/zoal-charts.xpl" 2>/dev/null
+  fi
+
   packaged=$((packaged + 1))
 done
 
