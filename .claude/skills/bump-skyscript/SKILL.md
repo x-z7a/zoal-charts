@@ -29,15 +29,20 @@ with no argument, use the latest release.
    `SkyScript-example-*-XP12.zip` archive. Packaging reads that layout directly,
    so a reorganised archive breaks `scripts/build-release.sh`.
 
+   Also read it for changes to `skyscript_c.h` — `src/main.cpp` links that C ABI
+   directly, so a removed or re-signed function is a compile error rather than a
+   packaging one.
+
 3. Try it without moving the pin first:
 
    ```sh
-   ZOAL_CHARTS_SKYSCRIPT_VERSION=<version> make package
+   ZOAL_CHARTS_SKYSCRIPT_VERSION=<version> ./scripts/ensure-deps.sh
+   make package
    ```
 
-   A failure here is the archive layout having changed. Fix
-   `scripts/build-release.sh` to match the new layout rather than working around
-   it.
+   A failure fetching is the release asset layout having changed; a failure
+   compiling is the C API having changed. Fix `scripts/ensure-deps.sh` or
+   `src/main.cpp` to match rather than working around it.
 
 4. If that packaged cleanly, move the pin:
 

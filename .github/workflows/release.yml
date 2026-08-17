@@ -1,0 +1,184 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g. v0.1.0). No release is published."
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac_x64
+          - os: windows-latest
+            platform: win_x64
+          - os: ubuntu-latest
+            platform: lin_x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            version="${GITHUB_REF_NAME}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Provision dependencies
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/ensure-deps.sh
+
+      - name: Build
+        shell: bash
+        run: |
+          cmake -S . -B build-plugin \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DZOAL_CHARTS_VERSION="${{ steps.version.outputs.version }}"
+          cmake --build build-plugin --config Release
+
+      # Only the binary travels between jobs. The SkyScript library and assets
+      # are identical on every runner, so the packaging job fetches them once
+      # rather than carrying three copies through the artifact store.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ matrix.platform }}
+          path: build-plugin/${{ matrix.platform }}/zoal-charts.xpl
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    name: Package and publish
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # git describe needs the tag history to find the previous release for
+          # the changelog link.
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            version="${GITHUB_REF_NAME}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: plugin-*
+          path: artifacts
+
+      # download-artifact gives one directory per artifact; packaging expects
+      # build-plugin/<platform>/zoal-charts.xpl.
+      - name: Lay out the built binaries
+        run: |
+          for platform in mac_x64 win_x64 lin_x64; do
+            mkdir -p "build-plugin/${platform}"
+            cp "artifacts/plugin-${platform}/zoal-charts.xpl" "build-plugin/${platform}/"
+          done
+
+      - name: Provision SkyScript runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/ensure-deps.sh
+
+      - name: Package
+        env:
+          # A release that quietly shipped one platform would be worse than a
+          # failed build, because it looks complete.
+          ZOAL_CHARTS_REQUIRE_ALL_PLATFORMS: "1"
+        run: scripts/build-release.sh
+
+      - name: Validate the packaged tree
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+
+          # Each platform must carry both its .xpl and the SkyScript library
+          # beside it: on macOS the plugin's only rpath is @loader_path, so a
+          # library anywhere else is a plugin X-Plane cannot load.
+          for pair in "mac_x64:libSkyScriptLib.dylib" \
+                      "win_x64:SkyScriptLib.dll" \
+                      "lin_x64:libSkyScriptLib.so"; do
+            platform="${pair%%:*}"
+            library="${pair##*:}"
+            test -f "dist/zoal-charts/${platform}/zoal-charts.xpl"
+            test -f "dist/zoal-charts/${platform}/${library}"
+          done
+
+          test -f dist/zoal-charts/apps/charts/manifest.yaml
+          test -f dist/zoal-charts/assets/icons/arrow-left-circle.svg
+          test -f dist/zoal-charts/licenses/skyscript/LICENSE
+
+          cd dist && zip -qr "zoal-charts-${version}.zip" zoal-charts
+          echo "Packaged:"
+          unzip -l "zoal-charts-${version}.zip" | tail -3
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zoal-charts-${{ steps.version.outputs.version }}
+          path: dist/zoal-charts-${{ steps.version.outputs.version }}.zip
+          if-no-files-found: error
+
+      # Only a tag publishes. workflow_dispatch builds the same archive and
+      # leaves it as an artifact, so a release can be rehearsed without one.
+      # Notes are written here rather than left to --generate-notes, which also
+      # overrides the title and gives install instructions nowhere to live.
+      - name: Write release notes
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          skyscript="$(tr -d '[:space:]' < scripts/skyscript-version.txt)"
+          previous="$(git describe --tags --abbrev=0 "${version}^" 2>/dev/null || true)"
+
+          {
+            echo "Unzip and drop the \`zoal-charts\` folder into \`<X-Plane 12>/Resources/plugins/\`,"
+            echo "then open **Plugins → zoal-charts → Navigraph Charts**."
+            echo
+            echo "Requires your own Navigraph subscription. No CEF is bundled: SkyScript"
+            echo "resolves the Chromium runtime X-Plane already ships."
+            echo
+            echo "Built against SkyScript ${skyscript}."
+            if [ -n "${previous}" ]; then
+              echo
+              echo "**Full changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${previous}...${version}"
+            fi
+          } > release-notes.md
+
+          cat release-notes.md
+
+      - name: Publish release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          gh release create "${version}" \
+            "dist/zoal-charts-${version}.zip" \
+            --title "${version}" \
+            --notes-file release-notes.md

@@ -120,10 +120,12 @@ def check_types(path: Path, fields: dict[str, tuple[str, int]]) -> list[str]:
             errors.append(
                 f"{path}:{lineno}: '{key}' must be an absolute http(s) URL, got '{value}'"
             )
-        elif key in {"notification_corner", "notification_location"}:
-            if unquoted not in NOTIFICATION_CORNERS:
-                allowed = ", ".join(sorted(NOTIFICATION_CORNERS))
-                errors.append(f"{path}:{lineno}: '{key}' must be one of {allowed}")
+        elif (
+            key in {"notification_corner", "notification_location"}
+            and unquoted not in NOTIFICATION_CORNERS
+        ):
+            allowed = ", ".join(sorted(NOTIFICATION_CORNERS))
+            errors.append(f"{path}:{lineno}: '{key}' must be one of {allowed}")
 
     if "window_opacity" in fields:
         value = fields["window_opacity"][0].strip("'\"")
@@ -147,17 +149,15 @@ def check_app(manifest: Path) -> list[str]:
 
     if "name" not in fields:
         errors.append(
-            f"{manifest}: no 'name' -- the app falls back to the folder name in "
-            f"the Plugins menu"
+            f"{manifest}: no 'name' -- the app falls back to the folder name in the Plugins menu"
         )
 
     # A local app with neither a URL nor an index.html opens an empty window.
-    if not ({"url", "homepage"} & fields.keys()):
-        if not (manifest.parent / "index.html").is_file():
-            errors.append(
-                f"{manifest}: no 'url' and no index.html beside it -- this app "
-                f"would open a blank window"
-            )
+    if not ({"url", "homepage"} & fields.keys()) and not (manifest.parent / "index.html").is_file():
+        errors.append(
+            f"{manifest}: no 'url' and no index.html beside it -- "
+            f"this app would open a blank window"
+        )
 
     return errors
 

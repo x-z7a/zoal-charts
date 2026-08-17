@@ -38,14 +38,15 @@ exactly what to click.
      \( -name '*.xpl' -o -name '*SkyScriptLib*' -o -name 'manifest.yaml' \)
    ```
 
+   A local build only covers this platform, so expect one platform directory
+   rather than three. That is fine for testing here.
+
 ## Then tell the user
 
 - X-Plane must be **restarted** — it reads the plugins folder once at startup.
   Only manifest edits can be picked up live, via
-  **Plugins → SkyScript → Reload configuration**.
-- The panel is at **Plugins → SkyScript → Apps → Navigraph Charts**. The menu
-  says "SkyScript", not "zoal-charts": the plugin identity is compiled into
-  SkyScript's stock example binary.
+  **Plugins → zoal-charts → Reload configuration**.
+- The panel is at **Plugins → zoal-charts → Navigraph Charts**.
 - Signing in to Navigraph needs their own subscription.
 
 ## Do not
