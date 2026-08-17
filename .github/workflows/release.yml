@@ -68,7 +68,10 @@ jobs:
   package:
     name: Package and publish
     needs: build
-    runs-on: ubuntu-latest
+    # macOS, not Linux: packaging rewrites the macOS library's install name and
+    # re-signs it, and install_name_tool and codesign exist nowhere else. See
+    # docs/multi-plugin.md for why that rename is not optional.
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -120,8 +123,10 @@ jobs:
 
           # Each platform must carry both its .xpl and the SkyScript library
           # beside it: on macOS the plugin's only rpath is @loader_path, so a
-          # library anywhere else is a plugin X-Plane cannot load.
-          for pair in "mac_x64:libSkyScriptLib.dylib" \
+          # library anywhere else is a plugin X-Plane cannot load. The macOS
+          # library is the renamed one -- the stock name being present would
+          # mean the rename silently did not happen.
+          for pair in "mac_x64:libSkyScriptLib-zoal-charts.dylib" \
                       "win_x64:SkyScriptLib.dll" \
                       "lin_x64:libSkyScriptLib.so"; do
             platform="${pair%%:*}"
@@ -129,6 +134,13 @@ jobs:
             test -f "dist/zoal-charts/${platform}/zoal-charts.xpl"
             test -f "dist/zoal-charts/${platform}/${library}"
           done
+
+          # The rename is only real if the .xpl actually loads the renamed
+          # library. Checking the file exists would pass even if the install
+          # name rewrite failed, which is the bug this guards against.
+          otool -L dist/zoal-charts/mac_x64/zoal-charts.xpl \
+            | grep -q "libSkyScriptLib-zoal-charts.dylib"
+          ! test -f dist/zoal-charts/mac_x64/libSkyScriptLib.dylib
 
           test -f dist/zoal-charts/apps/charts/manifest.yaml
           test -f dist/zoal-charts/assets/icons/arrow-left-circle.svg
