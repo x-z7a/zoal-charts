@@ -10,8 +10,8 @@ plugin (`src/main.cpp`) that hands SkyScript the `apps/` directory and builds a
 menu, and the app itself (`apps/charts/manifest.yaml`) — a URL-only SkyScript
 app, so there is no HTML, no JavaScript and no frontend build.
 
-**SkyScript is X-Plane only — it can never target MSFS.** It is a CEF host built
-against the X-Plane SDK that renders into X-Plane floating windows and registers
+**SkyScript is X-Plane only — it can never target MSFS.** It builds on
+X-Plane's own browser windows (SDK 4.4, X-Plane 12.4.4+) and registers
 X-Plane commands and datarefs. MSFS in-sim panels are JS/HTML gauges under the
 MSFS Avionics Framework, an unrelated host. "Like Navigraph does in MSFS" is the
 analogy for the product, not the target platform.
@@ -43,12 +43,13 @@ behaviour to the user. Do not claim the panel works.
 - **The SkyScript library ships beside the `.xpl`, not under `lib/`.** The macOS
   binary's only rpath is `@loader_path`. A dylib left in `lib/mac_x64/` is one
   the plugin cannot find, and X-Plane reports a plugin that failed to load.
-- **No CEF is packaged.** Since SkyScript v0.5.0 the library resolves the
-  Chromium runtime X-Plane ships. Bundling one adds ~200MB that would not even
-  be the copy that loads.
+- **No browser is packaged.** Since SkyScript v0.12.0 the page lives in an
+  X-Plane browser window (`xplm_WindowContentTypeBrowser`), so the plugin needs
+  X-Plane 12.4.4 or newer. Older sims fail to load the SkyScript library.
 - **Assets are not in the SkyScript lib bundle.** They come from the source
   tarball at the same tag (828KB, versus 140MB for the example release that also
-  has them). A release without `assets/` is a plugin with no back button.
+  has them). A release without `assets/` is a plugin with no notification
+  sound or icons.
 - **Identity is compiled in** (`src/config.h`): name `zoal-charts`, signature
   `com.x-z7a.zoal-charts`. It must stay distinct from `com.x-z7a.SkyScript` —
   X-Plane loads only one plugin per signature.
@@ -74,14 +75,15 @@ list is in SkyScript's `docs/developer/manifest.md`.
 
 ## Custom window chrome was considered and rejected
 
-SkyScript draws its own chrome natively in C++ over the browser texture, and one
-app is one browser is one top-level document. A branded header/footer around
+SkyScript draws its own chrome (title bar, close button, resize grip) in small
+windows glued above and below the browser window, and one app is one browser is
+one top-level document. A branded header/footer around
 `charts.navigraph.com` would need either an iframe (risking third-party cookie
 breakage of Navigraph's login) or new C++ upstream in SkyScript. **Stock chrome
 is a deliberate choice.** Do not add an iframe wrapper without being asked.
 
-Titleless windows already drag by the top strip and resize through X-Plane;
-SkyScript v0.10.0 added a real title bar and resize grip.
+Titleless windows drag by the title bar and resize from the grip or X-Plane's
+edge handles; SkyScript v0.12.1 brought that chrome back on browser windows.
 
 ## Local reference
 
