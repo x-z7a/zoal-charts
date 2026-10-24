@@ -5,7 +5,7 @@ window you can read charts in, in any aircraft, because it belongs to the plugin
 rather than to a cockpit.
 
 Built on [SkyScript](https://github.com/x-z7a/SkyScript), which hosts web content
-in X-Plane windows through CEF.
+in X-Plane's own browser windows. **Requires X-Plane 12.4.4 or newer.**
 
 > You need your own Navigraph subscription. This plugin opens
 > `charts.navigraph.com` in the sim; it does not bundle, cache or redistribute
@@ -18,11 +18,11 @@ in X-Plane windows through CEF.
 3. Launch X-Plane, then open **Plugins → zoal-charts → Navigraph Charts** and
    sign in to Navigraph.
 
-Drag the window by the strip along its top edge, and resize it from the grip in
-the corner.
+Drag the window by its title bar, close it with the × at the left of the bar,
+and resize it from the grip in the bottom-right corner or from its edges.
 
-The archive ships no CEF: SkyScript resolves the Chromium runtime that comes with
-X-Plane 12, so there is nothing ~200MB to download that X-Plane already has.
+The archive ships no browser: X-Plane 12.4.4 renders the page itself, so there
+is nothing ~200MB to download that X-Plane already has.
 
 macOS builds are **Apple Silicon only** — the SkyScript library ships arm64.
 
